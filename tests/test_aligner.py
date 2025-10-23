@@ -22,12 +22,6 @@ class TestBilingualAligner(unittest.TestCase):
         self.assertEqual(self.aligner.lang1, "en")
         self.assertEqual(self.aligner.lang2, "zh")
 
-    def test_split_sentences(self):
-        """Test sentence splitting."""
-        sentences = self.aligner._split_sentences(self.text1)
-        self.assertGreater(len(sentences), 0)
-        self.assertTrue(all(isinstance(s, str) for s in sentences))
-
     def test_split_paragraphs(self):
         """Test paragraph splitting."""
         paragraphs = self.aligner._split_paragraphs(self.para_text1)

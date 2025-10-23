@@ -1,6 +1,5 @@
 """Module for aligning text from two languages."""
 
-import re
 from typing import List, Tuple
 try:
     from lingtrain_aligner import splitter
@@ -47,17 +46,13 @@ class BilingualAligner:
             segments1 = self._split_paragraphs(text1)
             segments2 = self._split_paragraphs(text2)
         else:  # sentence mode
-            if USE_LINGTRAIN:
-                try:
-                    segments1 = splitter.split_by_sentences_wrapper(text1, self.lang1)
-                    segments2 = splitter.split_by_sentences_wrapper(text2, self.lang2)
-                except Exception:
-                    # Fallback to simple splitting
-                    segments1 = self._split_sentences(text1)
-                    segments2 = self._split_sentences(text2)
-            else:
-                segments1 = self._split_sentences(text1)
-                segments2 = self._split_sentences(text2)
+            if not USE_LINGTRAIN:
+                raise ImportError(
+                    "lingtrain-aligner is required for sentence-level alignment. "
+                    "Install it with: pip install lingtrain-aligner"
+                )
+            segments1 = splitter.split_by_sentences_wrapper(text1, self.lang1)
+            segments2 = splitter.split_by_sentences_wrapper(text2, self.lang2)
 
         # Simple sequential alignment
         # Pair segments in order, padding with empty strings if lengths differ
@@ -73,41 +68,6 @@ class BilingualAligner:
                 result.append((seg1.strip(), seg2.strip()))
         
         return result
-
-    def _split_sentences(self, text: str) -> List[str]:
-        """Split text into sentences using simple rules.
-        
-        Args:
-            text: Text to split
-            
-        Returns:
-            List of sentences
-        """
-        # Split on common sentence terminators
-        # This is a simple approach - lingtrain_aligner provides better splitting
-        sentences = []
-        
-        # Replace newlines with spaces first
-        text = ' '.join(text.split('\n'))
-        
-        # Split on sentence terminators
-        parts = re.split(r'([.!?。！？]+[\s"])', text)
-        
-        current = ""
-        for i, part in enumerate(parts):
-            if i % 2 == 0:  # Text part
-                current += part
-            else:  # Terminator part
-                current += part
-                if current.strip():
-                    sentences.append(current.strip())
-                current = ""
-        
-        # Add remaining text if any
-        if current.strip():
-            sentences.append(current.strip())
-        
-        return [s for s in sentences if s]
 
     def _split_paragraphs(self, text: str) -> List[str]:
         """Split text into paragraphs.
