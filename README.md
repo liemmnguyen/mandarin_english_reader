@@ -6,8 +6,10 @@ A PDF generator that creates bilingual documents using Lingtrain Aligner. This t
 
 - **Multiple Input Formats**: Supports PDF, ePub, and plain text files
 - **Flexible Alignment**: Align text at sentence or paragraph level
-- **Lingtrain Aligner Integration**: Uses advanced alignment algorithms for accurate bilingual text matching
+- **Smart Text Splitting**: Uses Lingtrain Aligner's sentence splitter for accurate text segmentation when available
+- **Sequential Alignment**: Pairs text segments from both languages in order for easy reading
 - **Clean PDF Output**: Generates professional-looking bilingual documents
+- **Language Learning Friendly**: Perfect for parallel reading and language study
 
 ## Installation
 
@@ -94,6 +96,18 @@ pdf_gen = PDFGenerator("output.pdf", title="My Bilingual Book")
 pdf_gen.generate_pdf(aligned_texts)
 ```
 
+## How It Works
+
+1. **Text Extraction**: The tool extracts text from your input files (PDF, ePub, or txt)
+2. **Text Segmentation**: Text is split into sentences or paragraphs based on your chosen mode
+3. **Sequential Alignment**: Segments from both languages are paired in order (1st with 1st, 2nd with 2nd, etc.)
+4. **PDF Generation**: A new PDF is created with alternating segments from each language
+
+This approach works best when:
+- Both input files contain the same content translated into different languages
+- The texts are roughly parallel in structure (same number of sentences/paragraphs)
+- You want a simple, readable bilingual format for language learning
+
 ## Supported Languages
 
 The tool supports any language pair that Lingtrain Aligner supports. Common language codes include:
@@ -122,6 +136,42 @@ The tool supports any language pair that Lingtrain Aligner supports. Common lang
 ## License
 
 MIT License
+
+## Troubleshooting
+
+### Installation Issues
+
+If you encounter issues installing dependencies, try:
+
+```bash
+# Install core dependencies only (without heavy ML libraries)
+pip install PyPDF2 ebooklib reportlab beautifulsoup4 lxml click
+
+# Then install the package
+pip install -e .
+```
+
+The tool will work with basic sentence splitting even without lingtrain-aligner installed.
+
+### PDF Generation Issues
+
+- **Missing fonts for non-Latin scripts**: The tool uses ReportLab's built-in font support. For best results with Chinese, Japanese, or other non-Latin scripts, ensure your system has appropriate fonts installed.
+- **Large files**: For very large books, processing may take several minutes. Be patient!
+
+### Alignment Quality
+
+For best alignment results:
+- Ensure both input files contain the same content (translated versions)
+- Use paragraph mode for books with clear paragraph structure
+- Use sentence mode for more granular alignment
+
+## Testing
+
+Run the test suite:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
 
 ## Contributing
 
