@@ -1,6 +1,6 @@
 """Module for aligning text from two languages."""
 
-from typing import List, Tuple, NamedTuple
+from typing import List, Tuple, NamedTuple, Optional
 try:
     from lingtrain_aligner import splitter
     USE_LINGTRAIN = True
@@ -8,6 +8,13 @@ except ImportError:
     USE_LINGTRAIN = False
 
 from .document_structure import DocumentSection
+from .text_extractor import DocumentWithImages
+from .image_extractor import (
+    ImageBlock,
+    match_images_by_position,
+    match_images_by_page,
+    match_images_by_proximity
+)
 
 
 class AlignedDocument(NamedTuple):
@@ -16,6 +23,17 @@ class AlignedDocument(NamedTuple):
     front_matter: List[Tuple[str, str]]
     main_text: List[Tuple[str, str]]
     back_matter: List[Tuple[str, str]]
+
+
+class AlignedDocumentWithImages(NamedTuple):
+    """Structure for aligned bilingual documents with images."""
+
+    front_matter: List[Tuple[str, str]]
+    main_text: List[Tuple[str, str]]
+    back_matter: List[Tuple[str, str]]
+    matched_images: List[Tuple[ImageBlock, ImageBlock]]
+    unmatched_images1: List[ImageBlock]
+    unmatched_images2: List[ImageBlock]
 
 
 class BilingualAligner:
@@ -121,6 +139,75 @@ class BilingualAligner:
             front_matter=front_matter_aligned,
             main_text=main_text_aligned,
             back_matter=back_matter_aligned
+        )
+
+    def align_documents_with_images(
+        self,
+        doc1: DocumentWithImages,
+        doc2: DocumentWithImages,
+        alignment_mode: str = "sentence",
+        image_match_mode: str = "inline"
+    ) -> AlignedDocumentWithImages:
+        """Align two documents with images.
+
+        Args:
+            doc1: First document with images
+            doc2: Second document with images
+            alignment_mode: "sentence" or "paragraph" alignment for text
+            image_match_mode: "inline", "position", "page", or "proximity" for images
+
+        Returns:
+            AlignedDocumentWithImages with aligned text and images
+        """
+        # Handle front matter - simple concatenation (side-by-side)
+        front_matter_aligned = []
+        if doc1.front_matter or doc2.front_matter:
+            front_matter_aligned = [(doc1.front_matter, doc2.front_matter)]
+
+        # Handle main text - sentence/paragraph alignment
+        main_text_aligned = []
+        if doc1.main_text or doc2.main_text:
+            main_text_aligned = self.align_texts(
+                doc1.main_text,
+                doc2.main_text,
+                alignment_mode=alignment_mode
+            )
+
+        # Handle back matter - simple concatenation (side-by-side)
+        back_matter_aligned = []
+        if doc1.back_matter or doc2.back_matter:
+            back_matter_aligned = [(doc1.back_matter, doc2.back_matter)]
+
+        # Handle images
+        matched_images = []
+        unmatched_images1 = []
+        unmatched_images2 = []
+
+        if image_match_mode == "inline":
+            # No matching - treat all images as unmatched
+            unmatched_images1 = doc1.images
+            unmatched_images2 = doc2.images
+        elif image_match_mode == "position":
+            matched_images, unmatched_images1, unmatched_images2 = match_images_by_position(
+                doc1.images, doc2.images
+            )
+        elif image_match_mode == "page":
+            matched_images, unmatched_images1, unmatched_images2 = match_images_by_page(
+                doc1.images, doc2.images
+            )
+        elif image_match_mode == "proximity":
+            # TODO: Pass aligned text positions for better matching
+            matched_images, unmatched_images1, unmatched_images2 = match_images_by_proximity(
+                doc1.images, doc2.images, []
+            )
+
+        return AlignedDocumentWithImages(
+            front_matter=front_matter_aligned,
+            main_text=main_text_aligned,
+            back_matter=back_matter_aligned,
+            matched_images=matched_images,
+            unmatched_images1=unmatched_images1,
+            unmatched_images2=unmatched_images2
         )
 
     def _split_paragraphs(self, text: str) -> List[str]:

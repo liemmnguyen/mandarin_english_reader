@@ -72,8 +72,20 @@ from .pdf_generator import PDFGenerator
     default=None,
     help='Custom marker for where back matter starts in second file (e.g., "附录")'
 )
+@click.option(
+    '--extract-images/--no-extract-images',
+    default=True,
+    help='Extract and include images from source documents (default: enabled)'
+)
+@click.option(
+    '--image-match-mode',
+    type=click.Choice(['inline', 'position', 'page', 'proximity'], case_sensitive=False),
+    default='inline',
+    help='Image matching mode: inline (no matching), position, page, or proximity (default: inline)'
+)
 def main(input1, input2, output, lang1, lang2, mode, title, detect_structure,
-         start_marker1, start_marker2, end_marker1, end_marker2):
+         start_marker1, start_marker2, end_marker1, end_marker2,
+         extract_images, image_match_mode):
     """Generate a bilingual PDF with aligned text from two language sources.
 
     This tool reads books in two different languages (PDF, ePub, or txt format)
@@ -95,43 +107,79 @@ def main(input1, input2, output, lang1, lang2, mode, title, detect_structure,
     click.echo("=" * 50)
 
     if detect_structure:
-        # Extract text with structure detection
-        click.echo(f"\n1. Extracting text with structure detection from {input1}...")
+        # Extract text with structure detection (and optionally images)
+        extraction_mode = "with images" if extract_images else "text only"
+        click.echo(f"\n1. Extracting {extraction_mode} with structure detection from {input1}...")
         try:
-            doc1 = TextExtractor.extract_with_structure(
+            doc1 = TextExtractor.extract_with_structure_and_images(
                 input1,
+                extract_images_flag=extract_images,
                 start_marker=start_marker1,
                 end_marker=end_marker1
             )
             click.echo(f"   ✓ Front matter: {len(doc1.front_matter)} chars")
             click.echo(f"   ✓ Main text: {len(doc1.main_text)} chars")
             click.echo(f"   ✓ Back matter: {len(doc1.back_matter)} chars")
+            if extract_images:
+                click.echo(f"   ✓ Images: {len(doc1.images)} extracted")
         except Exception as e:
-            click.echo(f"   ✗ Error extracting text from {input1}: {e}", err=True)
+            click.echo(f"   ✗ Error extracting from {input1}: {e}", err=True)
             return
 
-        click.echo(f"\n2. Extracting text with structure detection from {input2}...")
+        click.echo(f"\n2. Extracting {extraction_mode} with structure detection from {input2}...")
         try:
-            doc2 = TextExtractor.extract_with_structure(
+            doc2 = TextExtractor.extract_with_structure_and_images(
                 input2,
+                extract_images_flag=extract_images,
                 start_marker=start_marker2,
                 end_marker=end_marker2
             )
             click.echo(f"   ✓ Front matter: {len(doc2.front_matter)} chars")
             click.echo(f"   ✓ Main text: {len(doc2.main_text)} chars")
             click.echo(f"   ✓ Back matter: {len(doc2.back_matter)} chars")
+            if extract_images:
+                click.echo(f"   ✓ Images: {len(doc2.images)} extracted")
         except Exception as e:
-            click.echo(f"   ✗ Error extracting text from {input2}: {e}", err=True)
+            click.echo(f"   ✗ Error extracting from {input2}: {e}", err=True)
             return
 
         # Align documents
-        click.echo(f"\n3. Aligning documents using {mode} mode...")
+        alignment_info = f"{mode} mode"
+        if extract_images:
+            alignment_info += f", images: {image_match_mode}"
+        click.echo(f"\n3. Aligning documents using {alignment_info}...")
         try:
             aligner = BilingualAligner(lang1=lang1, lang2=lang2)
-            aligned_doc = aligner.align_documents(doc1, doc2, alignment_mode=mode)
-            click.echo(f"   ✓ Front matter: {len(aligned_doc.front_matter)} sections")
-            click.echo(f"   ✓ Main text: {len(aligned_doc.main_text)} aligned segments")
-            click.echo(f"   ✓ Back matter: {len(aligned_doc.back_matter)} sections")
+
+            if extract_images:
+                aligned_doc = aligner.align_documents_with_images(
+                    doc1, doc2,
+                    alignment_mode=mode,
+                    image_match_mode=image_match_mode
+                )
+                click.echo(f"   ✓ Front matter: {len(aligned_doc.front_matter)} sections")
+                click.echo(f"   ✓ Main text: {len(aligned_doc.main_text)} aligned segments")
+                click.echo(f"   ✓ Back matter: {len(aligned_doc.back_matter)} sections")
+                click.echo(f"   ✓ Matched images: {len(aligned_doc.matched_images)}")
+                click.echo(f"   ✓ Unmatched images (doc1): {len(aligned_doc.unmatched_images1)}")
+                click.echo(f"   ✓ Unmatched images (doc2): {len(aligned_doc.unmatched_images2)}")
+            else:
+                # Convert DocumentWithImages to DocumentSection for backward compatibility
+                from .document_structure import DocumentSection
+                doc_section1 = DocumentSection(
+                    front_matter=doc1.front_matter,
+                    main_text=doc1.main_text,
+                    back_matter=doc1.back_matter
+                )
+                doc_section2 = DocumentSection(
+                    front_matter=doc2.front_matter,
+                    main_text=doc2.main_text,
+                    back_matter=doc2.back_matter
+                )
+                aligned_doc = aligner.align_documents(doc_section1, doc_section2, alignment_mode=mode)
+                click.echo(f"   ✓ Front matter: {len(aligned_doc.front_matter)} sections")
+                click.echo(f"   ✓ Main text: {len(aligned_doc.main_text)} aligned segments")
+                click.echo(f"   ✓ Back matter: {len(aligned_doc.back_matter)} sections")
         except Exception as e:
             click.echo(f"   ✗ Error aligning documents: {e}", err=True)
             return
@@ -140,11 +188,20 @@ def main(input1, input2, output, lang1, lang2, mode, title, detect_structure,
         click.echo(f"\n4. Generating PDF at {output}...")
         try:
             pdf_gen = PDFGenerator(output, title=title)
-            pdf_gen.generate_pdf_from_aligned_document(
-                aligned_doc,
-                lang1_name=f"Language 1 ({lang1})",
-                lang2_name=f"Language 2 ({lang2})"
-            )
+
+            if extract_images:
+                pdf_gen.generate_pdf_from_aligned_document_with_images(
+                    aligned_doc,
+                    lang1_name=f"Language 1 ({lang1})",
+                    lang2_name=f"Language 2 ({lang2})",
+                    image_match_mode=image_match_mode
+                )
+            else:
+                pdf_gen.generate_pdf_from_aligned_document(
+                    aligned_doc,
+                    lang1_name=f"Language 1 ({lang1})",
+                    lang2_name=f"Language 2 ({lang2})"
+                )
             click.echo(f"   ✓ PDF generated successfully!")
         except Exception as e:
             click.echo(f"   ✗ Error generating PDF: {e}", err=True)
