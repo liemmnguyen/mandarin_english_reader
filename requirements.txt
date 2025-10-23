@@ -1,0 +1,24 @@
+# Core dependencies
+PyPDF2>=3.0.0
+ebooklib>=0.18
+reportlab>=4.0.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+click>=8.1.0
+
+# Optional: Lingtrain Aligner and its dependencies for advanced alignment
+# If installed, provides better sentence splitting
+lingtrain-aligner>=0.4.0
+dateparser
+razdel
+sentence-splitter
+langdetect
+numpy
+scipy
+scikit-learn
+sentence-transformers
+torch
+transformers
+matplotlib
+Pillow
+more-itertools
