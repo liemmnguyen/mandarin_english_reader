@@ -1,7 +1,8 @@
 """Tests for aligner module."""
 
 import unittest
-from bilingual_reader.aligner import BilingualAligner
+from bilingual_reader.aligner import BilingualAligner, AlignedDocument
+from bilingual_reader.document_structure import DocumentSection
 
 
 class TestBilingualAligner(unittest.TestCase):
@@ -65,6 +66,58 @@ class TestBilingualAligner(unittest.TestCase):
         # Should handle unequal lengths gracefully
         self.assertIsInstance(aligned, list)
         self.assertGreater(len(aligned), 0)
+
+    def test_align_documents_with_structure(self):
+        """Test aligning documents with structure (front/main/back matter)."""
+        doc1 = DocumentSection(
+            front_matter="Title: My Book\nBy: John Doe",
+            main_text="Chapter 1. This is the first chapter. Chapter 2. This is the second.",
+            back_matter="Appendix A. Additional notes."
+        )
+
+        doc2 = DocumentSection(
+            front_matter="标题：我的书\n作者：张三",
+            main_text="第一章。这是第一章。第二章。这是第二章。",
+            back_matter="附录A。附加说明。"
+        )
+
+        aligned_doc = self.aligner.align_documents(doc1, doc2, alignment_mode="paragraph")
+
+        self.assertIsInstance(aligned_doc, AlignedDocument)
+        self.assertGreater(len(aligned_doc.front_matter), 0)
+        self.assertGreater(len(aligned_doc.main_text), 0)
+        self.assertGreater(len(aligned_doc.back_matter), 0)
+
+    def test_align_documents_no_front_matter(self):
+        """Test aligning documents without front matter."""
+        doc1 = DocumentSection(
+            front_matter="",
+            main_text="First paragraph.\n\nSecond paragraph.",
+            back_matter=""
+        )
+
+        doc2 = DocumentSection(
+            front_matter="",
+            main_text="第一段。\n\n第二段。",
+            back_matter=""
+        )
+
+        aligned_doc = self.aligner.align_documents(doc1, doc2, alignment_mode="paragraph")
+
+        self.assertEqual(len(aligned_doc.front_matter), 0)
+        self.assertGreater(len(aligned_doc.main_text), 0)
+        self.assertEqual(len(aligned_doc.back_matter), 0)
+
+    def test_align_documents_empty(self):
+        """Test aligning empty documents."""
+        doc1 = DocumentSection()
+        doc2 = DocumentSection()
+
+        aligned_doc = self.aligner.align_documents(doc1, doc2)
+
+        self.assertEqual(len(aligned_doc.front_matter), 0)
+        self.assertEqual(len(aligned_doc.main_text), 0)
+        self.assertEqual(len(aligned_doc.back_matter), 0)
 
 
 if __name__ == '__main__':

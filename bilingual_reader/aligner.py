@@ -1,11 +1,21 @@
 """Module for aligning text from two languages."""
 
-from typing import List, Tuple
+from typing import List, Tuple, NamedTuple
 try:
     from lingtrain_aligner import splitter
     USE_LINGTRAIN = True
 except ImportError:
     USE_LINGTRAIN = False
+
+from .document_structure import DocumentSection
+
+
+class AlignedDocument(NamedTuple):
+    """Structure for aligned bilingual documents with front/main/back matter."""
+
+    front_matter: List[Tuple[str, str]]
+    main_text: List[Tuple[str, str]]
+    back_matter: List[Tuple[str, str]]
 
 
 class BilingualAligner:
@@ -68,6 +78,50 @@ class BilingualAligner:
                 result.append((seg1.strip(), seg2.strip()))
         
         return result
+
+    def align_documents(
+        self,
+        doc1: DocumentSection,
+        doc2: DocumentSection,
+        alignment_mode: str = "sentence"
+    ) -> AlignedDocument:
+        """Align two structured documents with front matter, main text, and back matter.
+
+        Front and back matter are concatenated side-by-side (not sentence-aligned).
+        Main text is aligned sentence-by-sentence or paragraph-by-paragraph.
+
+        Args:
+            doc1: First document section (typically English)
+            doc2: Second document section (typically Chinese)
+            alignment_mode: "sentence" or "paragraph" alignment for main text
+
+        Returns:
+            AlignedDocument with front_matter, main_text, and back_matter aligned
+        """
+        # Handle front matter - simple concatenation (side-by-side)
+        front_matter_aligned = []
+        if doc1.front_matter or doc2.front_matter:
+            front_matter_aligned = [(doc1.front_matter, doc2.front_matter)]
+
+        # Handle main text - sentence/paragraph alignment
+        main_text_aligned = []
+        if doc1.main_text or doc2.main_text:
+            main_text_aligned = self.align_texts(
+                doc1.main_text,
+                doc2.main_text,
+                alignment_mode=alignment_mode
+            )
+
+        # Handle back matter - simple concatenation (side-by-side)
+        back_matter_aligned = []
+        if doc1.back_matter or doc2.back_matter:
+            back_matter_aligned = [(doc1.back_matter, doc2.back_matter)]
+
+        return AlignedDocument(
+            front_matter=front_matter_aligned,
+            main_text=main_text_aligned,
+            back_matter=back_matter_aligned
+        )
 
     def _split_paragraphs(self, text: str) -> List[str]:
         """Split text into paragraphs.

@@ -10,6 +10,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.enums import TA_LEFT, TA_JUSTIFY
 
+from .aligner import AlignedDocument
+
 
 class PDFGenerator:
     """Generate PDF documents with aligned bilingual text."""
@@ -76,7 +78,42 @@ class PDFGenerator:
             spaceAfter=24,
             alignment=TA_LEFT,
         ))
-        
+
+        # Front matter style (slightly smaller, italic)
+        styles.add(ParagraphStyle(
+            name='FrontMatter',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=13,
+            spaceBefore=3,
+            spaceAfter=3,
+            alignment=TA_LEFT,
+            textColor='#333333',
+        ))
+
+        # Back matter style (slightly smaller)
+        styles.add(ParagraphStyle(
+            name='BackMatter',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=13,
+            spaceBefore=3,
+            spaceAfter=3,
+            alignment=TA_LEFT,
+            textColor='#555555',
+        ))
+
+        # Section header style
+        styles.add(ParagraphStyle(
+            name='SectionHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            leading=18,
+            spaceBefore=18,
+            spaceAfter=12,
+            alignment=TA_LEFT,
+        ))
+
         return styles
 
     def generate_pdf(
@@ -121,6 +158,128 @@ class PDFGenerator:
             if idx < len(aligned_texts) - 1:
                 story.append(Spacer(1, 0.1 * inch))
         
+        # Build the PDF
+        self.doc.build(story)
+
+    def generate_pdf_from_aligned_document(
+        self,
+        aligned_doc: AlignedDocument,
+        lang1_name: str = "Language 1",
+        lang2_name: str = "Language 2"
+    ):
+        """Generate PDF from an AlignedDocument with front/main/back matter.
+
+        Front and back matter are displayed side-by-side (concatenated).
+        Main text is displayed with sentence/paragraph alignment.
+
+        Args:
+            aligned_doc: AlignedDocument with front_matter, main_text, back_matter
+            lang1_name: Name of first language for display
+            lang2_name: Name of second language for display
+        """
+        story = []
+
+        # Add title
+        title = Paragraph(self.title, self.styles['CustomTitle'])
+        story.append(title)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Add front matter section (if present)
+        if aligned_doc.front_matter:
+            story.append(Paragraph("Front Matter", self.styles['SectionHeader']))
+            story.append(Spacer(1, 0.1 * inch))
+
+            for text1, text2 in aligned_doc.front_matter:
+                if text1.strip():
+                    story.append(Paragraph(
+                        f"<b>{lang1_name}:</b>",
+                        self.styles['FrontMatter']
+                    ))
+                    # Split long front matter into paragraphs for better display
+                    for para in text1.split('\n\n'):
+                        if para.strip():
+                            story.append(Paragraph(
+                                self._sanitize_text(para),
+                                self.styles['FrontMatter']
+                            ))
+
+                story.append(Spacer(1, 0.15 * inch))
+
+                if text2.strip():
+                    story.append(Paragraph(
+                        f"<b>{lang2_name}:</b>",
+                        self.styles['FrontMatter']
+                    ))
+                    # Split long front matter into paragraphs for better display
+                    for para in text2.split('\n\n'):
+                        if para.strip():
+                            story.append(Paragraph(
+                                self._sanitize_text(para),
+                                self.styles['FrontMatter']
+                            ))
+
+            # Page break after front matter
+            story.append(PageBreak())
+
+        # Add main text section (aligned)
+        if aligned_doc.main_text:
+            story.append(Paragraph("Main Text", self.styles['SectionHeader']))
+            story.append(Spacer(1, 0.1 * inch))
+
+            for idx, (text1, text2) in enumerate(aligned_doc.main_text):
+                if text1.strip():
+                    para1 = Paragraph(
+                        self._sanitize_text(text1),
+                        self.styles['Language1']
+                    )
+                    story.append(para1)
+
+                if text2.strip():
+                    para2 = Paragraph(
+                        self._sanitize_text(text2),
+                        self.styles['Language2']
+                    )
+                    story.append(para2)
+
+                # Add spacing between alignment pairs
+                if idx < len(aligned_doc.main_text) - 1:
+                    story.append(Spacer(1, 0.1 * inch))
+
+        # Add back matter section (if present)
+        if aligned_doc.back_matter:
+            story.append(PageBreak())
+            story.append(Paragraph("Back Matter", self.styles['SectionHeader']))
+            story.append(Spacer(1, 0.1 * inch))
+
+            for text1, text2 in aligned_doc.back_matter:
+                if text1.strip():
+                    story.append(Paragraph(
+                        f"<b>{lang1_name}:</b>",
+                        self.styles['BackMatter']
+                    ))
+                    # Split long back matter into paragraphs for better display
+                    for para in text1.split('\n\n'):
+                        if para.strip():
+                            story.append(Paragraph(
+                                self._sanitize_text(para),
+                                self.styles['BackMatter']
+                            ))
+
+                story.append(Spacer(1, 0.15 * inch))
+
+                if text2.strip():
+                    story.append(Paragraph(
+                        f"<b>{lang2_name}:</b>",
+                        self.styles['BackMatter']
+                    ))
+                    # Split long back matter into paragraphs for better display
+                    for para in text2.split('\n\n'):
+                        if para.strip():
+                            story.append(Paragraph(
+                                self._sanitize_text(para),
+                                self.styles['BackMatter']
+                            ))
+
         # Build the PDF
         self.doc.build(story)
 
