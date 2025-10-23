@@ -103,6 +103,24 @@ pdf_gen.generate_pdf(aligned_texts)
 3. **Sequential Alignment**: Segments from both languages are paired in order (1st with 1st, 2nd with 2nd, etc.)
 4. **PDF Generation**: A new PDF is created with alternating segments from each language
 
+### Example Output Format
+
+In **sentence mode**, the PDF looks like:
+
+```
+Once upon a time, there was a little prince who lived on a small planet.
+从前，有一个小王子住在一个小星球上。
+
+The planet was so small that he could walk around it in just a few minutes.
+这个星球非常小，他只需要几分钟就可以绕着它走一圈。
+
+One day, he decided to leave his planet and explore the universe.
+有一天，他决定离开他的星球去探索宇宙。
+...
+```
+
+In **paragraph mode**, complete paragraphs alternate between languages.
+
 This approach works best when:
 - Both input files contain the same content translated into different languages
 - The texts are roughly parallel in structure (same number of sentences/paragraphs)
